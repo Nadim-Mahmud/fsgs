@@ -21,10 +21,10 @@ RUN wget -q \
     && rm /tmp/miniconda.sh
 
 # Direct environment PATH works for both Compose commands and interactive shells.
-ENV PATH=/opt/conda/envs/gaussian_splatting/bin:/opt/conda/bin:/usr/local/cuda/bin:${PATH}
-ENV LD_LIBRARY_PATH=/opt/conda/envs/gaussian_splatting/lib/python3.9/site-packages/torch/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+ENV PATH=/opt/conda/envs/fsgs/bin:/opt/conda/bin:/usr/local/cuda/bin:${PATH}
+ENV LD_LIBRARY_PATH=/opt/conda/envs/fsgs/lib/python3.9/site-packages/torch/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
-RUN /opt/conda/bin/conda create -n gaussian_splatting python=3.9 -y \
+RUN /opt/conda/bin/conda create -n fsgs python=3.9 -y \
     && /opt/conda/bin/conda clean -afy
 
 RUN python -m pip install --upgrade pip wheel ninja "setuptools==69.5.1" \
@@ -44,7 +44,17 @@ RUN python -m pip install --no-build-isolation \
     && python -c "import torch; from simple_knn._C import distCUDA2; import diff_gaussian_rasterization; from fused_ssim import fused_ssim" \
     && rm -rf /tmp/simple-knn /tmp/diff-gaussian-rasterization /tmp/fused-ssim
 
-WORKDIR /workspace/gaussian-splatting
+# Provide an X11/OpenGL display for the packaged COLMAP in headless containers.
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        xvfb xauth libgl1-mesa-dri libglx-mesa0 mesa-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV DISPLAY=:99 \
+    QT_QPA_PLATFORM=xcb \
+    LIBGL_ALWAYS_SOFTWARE=1
+
+WORKDIR /workspace/fsgs
 COPY . .
 
+ENTRYPOINT ["xvfb-run", "--server-num=99", "--server-args=-screen 0 1280x1024x24 -nolisten tcp"]
 CMD ["/bin/bash"]

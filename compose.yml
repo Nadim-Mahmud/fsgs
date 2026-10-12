@@ -6,8 +6,12 @@ services:
       args:
         TORCH_CUDA_ARCH_LIST: ${TORCH_CUDA_ARCH_LIST:-8.6}
         MAX_JOBS: ${MAX_JOBS:-4}
-    image: gaussian-splatting:latest
+    image: fsgs:latest
     working_dir: /workspace/fsgs
+    environment:
+      QT_QPA_PLATFORM: xcb
+      DISPLAY: :99
+      LIBGL_ALWAYS_SOFTWARE: "1"
     volumes:
       - .:/workspace/fsgs
       - ${DATASET_PATH:-/home/vis/Projects/tandt/}:/workspace/ImgData

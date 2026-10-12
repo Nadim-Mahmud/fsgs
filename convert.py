@@ -18,12 +18,19 @@ import shutil
 parser = ArgumentParser("Colmap converter")
 parser.add_argument("--no_gpu", action='store_true')
 parser.add_argument("--skip_matching", action='store_true')
-parser.add_argument("--source_path", "-s", required=True, type=str)
+parser.add_argument("--source_path", "-s", required=True, type=str,
+                    help="Dataset root containing raw images in an input/ directory")
 parser.add_argument("--camera", default="OPENCV", type=str)
 parser.add_argument("--colmap_executable", default="", type=str)
 parser.add_argument("--resize", action="store_true")
 parser.add_argument("--magick_executable", default="", type=str)
 args = parser.parse_args()
+if not os.path.isdir(os.path.join(args.source_path, "input")):
+    parser.error(
+        f"Input image directory does not exist: {os.path.join(args.source_path, 'input')}. "
+        "Place raw images in <dataset>/input/ and pass -s <dataset>. "
+        "The images/ directory is used for undistorted output."
+    )
 colmap_command = '"{}"'.format(args.colmap_executable) if len(args.colmap_executable) > 0 else "colmap"
 magick_command = '"{}"'.format(args.magick_executable) if len(args.magick_executable) > 0 else "magick"
 use_gpu = 1 if not args.no_gpu else 0
