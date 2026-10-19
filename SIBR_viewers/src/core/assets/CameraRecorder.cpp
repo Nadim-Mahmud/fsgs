@@ -414,11 +414,11 @@ namespace sibr
 			return false;
 		}
 		_ow = w, _oh = h;
-		if (boost::filesystem::extension(pathFileName) == ".out")
+		if (boost::filesystem::path(pathFileName).extension().string() == ".out")
 			loadBundle(pathFileName, w, h);
-		else if (boost::filesystem::extension(pathFileName) == ".lookat")
+		else if (boost::filesystem::path(pathFileName).extension().string() == ".lookat")
 			loadLookat(pathFileName, w, h);
-		else if (boost::filesystem::extension(pathFileName) == ".txt")
+		else if (boost::filesystem::path(pathFileName).extension().string() == ".txt")
 			loadColmap(pathFileName, w, h);
 		else
 			load(pathFileName);

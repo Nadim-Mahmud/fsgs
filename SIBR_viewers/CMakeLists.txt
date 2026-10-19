@@ -9,6 +9,9 @@
 
 CMAKE_MINIMUM_REQUIRED(VERSION 3.22)
 
+# Third-party projects still declare policy versions older than CMake 4 supports.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 set (CMAKE_SYSTEM_VERSION 10.0.15063.0 CACHE INTERNAL "Cmake system version" FORCE)
 PROJECT(sibr_projects)
 

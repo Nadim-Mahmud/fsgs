@@ -1,0 +1,1 @@
+./SIBR_viewers/install/bin/SIBR_remoteGaussian_app --ip 127.0.0.1 --port 6009 -s "$PWD/data/cameleon"

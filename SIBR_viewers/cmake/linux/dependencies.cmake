@@ -124,7 +124,10 @@ sibr_addlibrary(
 
 # CLUSTER
 #find_package(embree 3.0 REQUIRED PATHS "/data/graphdeco/share/embree/usr/local/lib64/cmake/" )
-find_package(embree 3.0 )
+find_package(embree 4 QUIET)
+if(NOT embree_FOUND)
+    find_package(embree 3 REQUIRED)
+endif()
 
 ###################
 ## Find eigen3
@@ -137,7 +140,11 @@ sibr_addlibrary(
     MSVC14 "https://repo-sam.inria.fr/fungraph/dependencies/ibr-common/win3rdParty-MSVC15-splitted%20version/eigen3.7z"
     SET CHECK_CACHED_VAR eigen3_DIR PATH "eigen/share/eigen3/cmake"
 )
-include_directories(/usr/include/eigen3)
+if(EXISTS "${PROJECT_SOURCE_DIR}/extlibs/eigen/Eigen/Core")
+    include_directories("${PROJECT_SOURCE_DIR}/extlibs/eigen")
+else()
+    include_directories(/usr/include/eigen3)
+endif()
 add_definitions(-DEIGEN_INITIALIZE_MATRICES_BY_ZERO)
 
 #############
@@ -187,6 +194,11 @@ if (WIN32)
     endif()
 endif()
 
+# Boost.System is header-only in recent Boost releases.
+find_package(Boost 1.65.0 REQUIRED)
+if(Boost_VERSION_STRING VERSION_GREATER_EQUAL "1.89")
+    list(REMOVE_ITEM Boost_REQUIRED_COMPONENTS system)
+endif()
 find_package(Boost 1.65.0 REQUIRED COMPONENTS ${Boost_REQUIRED_COMPONENTS})
 # for CLUSTER
 ##find_package(Boost 1.58.0 REQUIRED COMPONENTS ${Boost_REQUIRED_COMPONENTS})
@@ -322,3 +334,5 @@ sibr_gitlibrary(TARGET xatlas
 )
 
 Win3rdPartyGlobalCacheAction()
+
+find_library(SIBR_XXF86VM_LIBRARY NAMES Xxf86vm libXxf86vm.so.1 REQUIRED)

@@ -13,8 +13,13 @@
 #pragma once
 
 # pragma warning(push, 0)
+#if __has_include(<embree4/rtcore.h>)
+#  include <embree4/rtcore.h>
+#  include <embree4/rtcore_ray.h>
+#else
 #  include <embree3/rtcore.h>
 #  include <embree3/rtcore_ray.h>
+#endif
 #  include <xmmintrin.h>	// functions for setting the control register
 #  include <pmmintrin.h>	// functions for setting the control register
 # pragma warning(pop)

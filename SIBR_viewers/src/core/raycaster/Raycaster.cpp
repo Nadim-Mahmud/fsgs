@@ -208,9 +208,13 @@ namespace sibr
 			SIBR_ERR << "cannot initialize embree, failed cast rays." << std::endl;
 		else
 		{
+			#if RTC_VERSION_MAJOR >= 4
+			rtcOccluded1(*_scene.get(), &ray);
+#else
 			RTCIntersectContext context;
 			rtcInitIntersectContext(&context);
 			rtcOccluded1(*_scene.get(), &context, &ray);
+#endif
 		}
 		return ray.tfar < 0.0f;
 	}
@@ -237,9 +241,13 @@ namespace sibr
 			SIBR_ERR << "cannot initialize embree, failed cast rays." << std::endl;
 		else
 		{
+			#if RTC_VERSION_MAJOR >= 4
+			rtcOccluded8(valid8, *_scene.get(), &ray);
+#else
 			RTCIntersectContext context;
 			rtcInitIntersectContext(&context);
 			rtcOccluded8(valid8, *_scene.get(), &context, &ray);
+#endif
 		}
 
 		std::array<bool, 8> res;
@@ -272,9 +280,13 @@ namespace sibr
 			SIBR_ERR << "cannot initialize embree, failed cast rays." << std::endl;
 		else
 		{
+			#if RTC_VERSION_MAJOR >= 4
+			rtcIntersect1(*_scene.get(), &rh);
+#else
 			RTCIntersectContext context;
 			rtcInitIntersectContext(&context);
 			rtcIntersect1(*_scene.get(), &context, &rh);
+#endif
 			rh.hit.Ng_x = -rh.hit.Ng_x; // EMBREE_FIXME: only correct for triangles,quads, and subdivision surfaces
 			rh.hit.Ng_y = -rh.hit.Ng_y;
 			rh.hit.Ng_z = -rh.hit.Ng_z;
@@ -319,9 +331,13 @@ namespace sibr
 			SIBR_ERR << "cannot initialize embree, failed cast rays." << std::endl;
 		else
 		{
+			#if RTC_VERSION_MAJOR >= 4
+			rtcIntersect8(valid8.data(), *_scene.get(), &rh);
+#else
 			RTCIntersectContext context;
 			rtcInitIntersectContext(&context);
 			rtcIntersect8(valid8.data(), *_scene.get(), &context, &rh);
+#endif
 		}
 
 		std::array<RayHit, 8> res;

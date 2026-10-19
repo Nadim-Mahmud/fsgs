@@ -27,7 +27,15 @@ namespace sibr
 
 	static void glfwErrorCallback(int error, const char* description)
 	{
-		SIBR_ERR << description << std::endl;
+#ifdef GLFW_FEATURE_UNAVAILABLE
+        // Wayland intentionally disallows operations such as querying or setting
+        // a window's global position. These are optional desktop conveniences.
+        if (error == GLFW_FEATURE_UNAVAILABLE || error == GLFW_FEATURE_UNIMPLEMENTED) {
+            SIBR_WRG << description << std::endl;
+            return;
+        }
+#endif
+        SIBR_ERR << description << std::endl;
 	}
 
 	static void glErrorCallback(GLenum src, GLenum type, GLuint id, GLenum severity, GLsizei size, const GLchar* str, const void* user) {
@@ -310,13 +318,14 @@ namespace sibr
 
 		glewExperimental = GL_TRUE;
 		GLenum err = glewInit();
-#ifdef GLEW_EGL
-//		if (err != GLEW_OK && (!args.offscreen || err != GLEW_ERROR_NO_GLX_DISPLAY)) // Small hack for glew, this error occurs but does not concern offscreen
-		if (err != GLEW_OK && (!args.offscreen )) // Small hack for glew, this error occurs but does not concern offscreen
-#else
-		if (err != GLEW_OK)
-#endif
-			SIBR_ERR << "cannot initialize GLEW (used to load OpenGL function)" << std::endl;
+        // Native Wayland contexts use EGL. GL entry points can be loaded even
+        // when GLX initialization reports that no X11 display is available.
+        if (err == GLEW_ERROR_NO_GLX_DISPLAY && glCreateShader && glGenBuffers) {
+            SIBR_WRG << "GLEW: no GLX display; using the active OpenGL context." << std::endl;
+        } else if (err != GLEW_OK) {
+            SIBR_ERR << "cannot initialize GLEW: " << glewGetErrorString(err)
+                     << " (code " << err << ")" << std::endl;
+        }
 		(void)glGetError(); // I notice that glew might do wrong things during its init()
 							// some drivers complain about it. So I reset OpenGL's errors to discard this.
 

@@ -43,7 +43,7 @@ namespace sibr {
 			SIBR_LOG << "[FFMPEG] Registering all." << std::endl;
 			// Ignore next line warning.
 #pragma warning(suppress : 4996)
-			av_register_all();
+			// Modern FFmpeg registers codecs automatically.
 			ffmpegInitDone = true;
 		}
 		
@@ -74,12 +74,13 @@ namespace sibr {
 	void FFVideoEncoder::close()
 	{
 #ifndef HEADLESS
+		encode(nullptr);
 		if (av_write_trailer(pFormatCtx) < 0) {
 			SIBR_WRG << "[FFMPEG] Can not av_write_trailer " << std::endl;
 		}
 
 		if (video_st) {
-			avcodec_close(video_st->codec);
+			avcodec_free_context(&pCodecCtx);
 			av_free(frameYUV);
 		}
 		avio_close(pFormatCtx->pb);
@@ -136,7 +137,7 @@ namespace sibr {
 			return;
 		}
 
-		pCodecCtx = video_st->codec;
+		pCodecCtx = avcodec_alloc_context3(pCodec);
 		pCodecCtx->codec_id = fmt->video_codec;
 		pCodecCtx->codec_type = AVMEDIA_TYPE_VIDEO;
 		pCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P;
@@ -165,6 +166,8 @@ namespace sibr {
 			SIBR_WRG << "[FFMPEG] Failed to open encoder, error: " << res << std::endl;
 			return;
 		}
+		avcodec_parameters_from_context(video_st->codecpar, pCodecCtx);
+		video_st->time_base = pCodecCtx->time_base;
 		// Write the file header.
 		avformat_write_header(pFormatCtx, NULL);
 
@@ -229,18 +232,16 @@ namespace sibr {
 #ifndef HEADLESS
 	bool FFVideoEncoder::encode(AVFrame * frame)
 	{
-		int got_picture = 0;
-
-		int ret = avcodec_encode_video2(pCodecCtx, pkt, frameYUV, &got_picture);
-		if (ret < 0) {
-			SIBR_WRG << "[FFMPEG] Failed to encode frame." << std::endl;
-			return false;
-		}
-		if (got_picture == 1) {
-			pkt->stream_index = video_st->index;
-			ret = av_write_frame(pFormatCtx, pkt);
-			av_packet_unref(pkt);
-		}
+        int ret = avcodec_send_frame(pCodecCtx, frame);
+        if (ret < 0) return false;
+        while ((ret = avcodec_receive_packet(pCodecCtx, pkt)) >= 0) {
+            av_packet_rescale_ts(pkt, pCodecCtx->time_base, video_st->time_base);
+            pkt->stream_index = video_st->index;
+            int written = av_write_frame(pFormatCtx, pkt);
+            av_packet_unref(pkt);
+            if (written < 0) return false;
+        }
+        if (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) return false;
 
 		return true;
 	}

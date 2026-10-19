@@ -7,6 +7,9 @@ services:
         TORCH_CUDA_ARCH_LIST: ${TORCH_CUDA_ARCH_LIST:-8.6}
         MAX_JOBS: ${MAX_JOBS:-4}
     image: fsgs:latest
+    # Open the shell directly; preprocess.sh starts its own virtual display.
+    entrypoint: []
+    command: ["/bin/bash"]
     working_dir: /workspace/fsgs
     environment:
       QT_QPA_PLATFORM: xcb
