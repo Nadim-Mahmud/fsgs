@@ -10,6 +10,7 @@
 #
 
 import os
+from pathlib import Path
 import torch
 from random import randint
 from utils.loss_utils import l1_loss, ssim
@@ -47,6 +48,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
+    Path(os.path.join(dataset.model_path, "iteration_report.csv")).touch(exist_ok=True)
+
     gaussians = GaussianModel(dataset.sh_degree, opt.optimizer_type)
     scene = Scene(dataset, gaussians)
     gaussians.training_setup(opt)
@@ -142,6 +145,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         loss.backward()
 
         iter_end.record()
+
+        save_gaussians(scene, iteration, l1_loss)
+
 
         with torch.no_grad():
             # Progress bar
@@ -250,6 +256,15 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
             tb_writer.add_histogram("scene/opacity_histogram", scene.gaussians.get_opacity, iteration)
             tb_writer.add_scalar('total_points', scene.gaussians.get_xyz.shape[0], iteration)
         torch.cuda.empty_cache()
+
+def save_gaussians(scene : Scene, iteration, l1_test=None, psnr_test=None):
+
+    with open(os.path.join(scene.model_path, "iteration_report.csv"), "a") as f:
+        if f.tell() == 0:
+            f.write("iteration,loss,psnr,total_points\n")
+        f.write("{},{},{},{}\n".format(iteration, l1_test, psnr_test, scene.gaussians.get_xyz.shape[0]))
+
+
 
 if __name__ == "__main__":
     # Set up command line argument parser
