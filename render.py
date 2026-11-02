@@ -10,6 +10,7 @@
 #
 
 import torch
+import json
 from scene import Scene
 import os
 from tqdm import tqdm
@@ -34,8 +35,21 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
     makedirs(render_path, exist_ok=True)
     makedirs(gts_path, exist_ok=True)
 
+    # Warm up CUDA before measuring rendering, excluding image saving.
+    if len(views):
+        for _ in range(5):
+            render(views[0], gaussians, pipeline, background, use_trained_exp=train_test_exp, separate_sh=separate_sh)
+        torch.cuda.synchronize()
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
+    total_render_ms = 0.0
+
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
+        start.record()
         rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp, separate_sh=separate_sh)["render"]
+        end.record()
+        end.synchronize()
+        total_render_ms += start.elapsed_time(end)
         gt = view.original_image[0:3, :, :]
 
         if args.train_test_exp:
@@ -44,6 +58,12 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
 
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
+
+    if total_render_ms > 0:
+        fps = len(views) * 1000.0 / total_render_ms
+        with open(os.path.join(model_path, name, f"ours_{iteration}", "render_stats.json"), "w") as f:
+            json.dump({"FPS": fps}, f, indent=2)
+        print(f"Average rendering FPS: {fps:.2f}")
 
 def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, separate_sh: bool):
     with torch.no_grad():

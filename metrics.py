@@ -81,6 +81,12 @@ def evaluate(model_paths):
                 full_dict[scene_dir][method].update({"SSIM": torch.tensor(ssims).mean().item(),
                                                         "PSNR": torch.tensor(psnrs).mean().item(),
                                                         "LPIPS": torch.tensor(lpipss).mean().item()})
+                stats_path = method_dir / "render_stats.json"
+                if stats_path.exists():
+                    with stats_path.open() as f:
+                        fps = json.load(f)["FPS"]
+                    full_dict[scene_dir][method]["FPS"] = fps
+                    print(f"  FPS  : {fps:.2f}")
                 per_view_dict[scene_dir][method].update({"SSIM": {name: ssim for ssim, name in zip(torch.tensor(ssims).tolist(), image_names)},
                                                             "PSNR": {name: psnr for psnr, name in zip(torch.tensor(psnrs).tolist(), image_names)},
                                                             "LPIPS": {name: lp for lp, name in zip(torch.tensor(lpipss).tolist(), image_names)}})

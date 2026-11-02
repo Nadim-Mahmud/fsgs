@@ -10,6 +10,8 @@
 #
 
 import os
+import csv
+import time
 from pathlib import Path
 import torch
 from random import randint
@@ -41,14 +43,28 @@ try:
 except:
     SPARSE_ADAM_AVAILABLE = False
 
-def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
+def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, iteration_report_suffix=""): 
 
     if not SPARSE_ADAM_AVAILABLE and opt.optimizer_type == "sparse_adam":
         sys.exit(f"Trying to use sparse adam but it is not installed, please install the correct rasterizer using pip install [3dgs_accel].")
 
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
-    Path(os.path.join(dataset.model_path, "iteration_report.csv")).touch(exist_ok=True)
+    report_name = f"iteration_report_{iteration_report_suffix}.csv" if iteration_report_suffix else "iteration_report.csv"
+    report_path = Path(dataset.model_path) / report_name
+    report_path.touch(exist_ok=True)
+    # Extend older reports before appending rows with timing columns.
+    if report_path.stat().st_size:
+        with report_path.open(newline="") as f:
+            reader = csv.DictReader(f)
+            fields = list(reader.fieldnames)
+            rows = list(reader)
+        new_fields = [name for name in ("training_time_s", "cpu_time_s") if name not in fields]
+        if new_fields:
+            with report_path.open("w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fields + new_fields)
+                writer.writeheader()
+                writer.writerows(rows)
 
     gaussians = GaussianModel(dataset.sh_degree, opt.optimizer_type)
     scene = Scene(dataset, gaussians)
@@ -73,6 +89,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
+    training_start = time.perf_counter()
+    cpu_start = time.process_time()
     for iteration in range(first_iter, opt.iterations + 1):
         if network_gui.conn == None:
             network_gui.try_connect()
@@ -146,9 +164,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         iter_end.record()
 
-        save_gaussians(scene, iteration, l1_loss)
-
-
         with torch.no_grad():
             # Progress bar
             ema_loss_for_log = 0.4 * loss.item() + 0.6 * ema_loss_for_log
@@ -194,6 +209,13 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             if (iteration in checkpoint_iterations):
                 print("\n[ITER {}] Saving Checkpoint".format(iteration))
                 torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
+
+            save_gaussians(
+                scene, iteration, Ll1.item(),
+                training_time_s=time.perf_counter() - training_start,
+                cpu_time_s=time.process_time() - cpu_start,
+                report_name=report_name,
+            )
 
 def prepare_output_and_logger(args):    
     if not args.model_path:
@@ -257,12 +279,19 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
             tb_writer.add_scalar('total_points', scene.gaussians.get_xyz.shape[0], iteration)
         torch.cuda.empty_cache()
 
-def save_gaussians(scene : Scene, iteration, l1_test=None, psnr_test=None):
+def save_gaussians(scene : Scene, iteration, l1_test=None, psnr_test=None,
+                   training_time_s=None, cpu_time_s=None, report_name="iteration_report.csv"):
 
-    with open(os.path.join(scene.model_path, "iteration_report.csv"), "a") as f:
-        if f.tell() == 0:
-            f.write("iteration,loss,psnr,total_points\n")
-        f.write("{},{},{},{}\n".format(iteration, l1_test, psnr_test, scene.gaussians.get_xyz.shape[0]))
+    report_path = os.path.join(scene.model_path, report_name)
+    mode = "w" if iteration == 1 else "a"
+    with open(report_path, mode) as f:
+        if mode == "w" or f.tell() == 0:
+            f.write("iteration,loss,psnr,total_points,training_time_s,cpu_time_s\n")
+        f.write("{},{},{},{},{},{}\n".format(
+            iteration, l1_test, psnr_test, scene.gaussians.get_xyz.shape[0],
+            training_time_s, cpu_time_s))
+
+
 
 
 
@@ -278,6 +307,8 @@ if __name__ == "__main__":
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
     parser.add_argument("--test_iterations", nargs="+", type=int, default=[7_000, 30_000])
     parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 30_000])
+    parser.add_argument("--iteration_report_suffix", type=str, default="",
+                        help="Suffix for iteration_report_<suffix>.csv")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument('--disable_viewer', action='store_true', default=False)
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
@@ -294,7 +325,7 @@ if __name__ == "__main__":
     if not args.disable_viewer:
         network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from)
+    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from, args.iteration_report_suffix)
 
     # All done
     print("\nTraining complete.")

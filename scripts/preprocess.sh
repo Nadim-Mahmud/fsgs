@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-ROOT_DIR="${1:-${REPO_ROOT}/data/cameleon_random}"
+ROOT_DIR="${1:-${REPO_ROOT}/data/cameleon}"
 
 if (( $# > 0 )); then
     shift

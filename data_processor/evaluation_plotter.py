@@ -4,6 +4,7 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import time
 
 
 repo_root = Path(__file__).resolve().parents[1]
@@ -43,6 +44,8 @@ for ax, values, label, color in zip(
 
 fig.suptitle("Evaluation results vs pixel dropout (iteration 30000)", fontsize=20)
 plt.tight_layout()
-plt.savefig(repo_root / "output/evaluation_plot.png", dpi=200)
-plt.savefig(repo_root / "output/evaluation_plot.pdf")
+
+timestamp = int(time.time())
+plt.savefig(repo_root / f"output/evaluation_plot_{timestamp}.png", dpi=200)
+plt.savefig(repo_root / f"output/evaluation_plot_{timestamp}.pdf")
 plt.close()
